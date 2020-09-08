@@ -1,0 +1,20 @@
+name: facedetection
+channels:
+  - conda-forge
+  - pytorch
+dependencies:
+  - cudatoolkit=10.2
+  - cudnn=7.6
+  - git=2.28
+  - imageio=2.9
+  - imgaug=0.4.0
+  - numpy=1.19
+  - opencv=4.4
+  - pillow=7.2
+  - pip=20.2
+  - py-opencv=4.4
+  - python=3.6
+  - pytorch=1.5
+  - scikit-image=0.17
+  - scipy=1.5
+  - torchvision=0.6
