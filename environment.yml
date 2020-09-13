@@ -9,6 +9,7 @@ dependencies:
   - imageio=2.9
   - imgaug=0.4.0
   - numpy=1.19
+  - pandas=1.1.2
   - opencv=4.4
   - pillow=7.2
   - pip=20.2

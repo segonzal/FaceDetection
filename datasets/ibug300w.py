@@ -11,6 +11,7 @@ class IBug300WDataset(Dataset):
     def __init__(self, path, transform=None):
         self.path = path
         self.transform = transform
+
         self.images = []
         self.keypoints = []
 
@@ -36,6 +37,8 @@ class IBug300WDataset(Dataset):
 
         image = Image.open(file_path).convert('RGB')
         image = np.float32(image) / 255.0
+
+        keypoints = np.float32(keypoints).reshape(68, 2)
 
         out = dict(image=image, keypoints=keypoints)
         if self.transform:
