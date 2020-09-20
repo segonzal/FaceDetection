@@ -4,17 +4,12 @@
 import os
 import numpy as np
 
-from PIL import Image
-from torch.utils.data import Dataset
+from base import BaseImageDataset
 
-class IBug300WDataset(Dataset):
+class IBug300WDataset(BaseImageDataset):
     def __init__(self, path, transform=None):
-        self.path = path
-        self.transform = transform
-
-        self.images = []
-        self.keypoints = []
-
+        images  = []
+        targets = []
         for folder, name in [("01_Indoor", "indoor"),
                              ("02_Outdoor", "outdoor")]:
             for i in range(1, 301):
@@ -25,22 +20,11 @@ class IBug300WDataset(Dataset):
                         if line[0].isdigit():
                             kps.append(list(map(float, line[:-1].split())))
 
-                self.images.append(fname + ".png")
-                self.keypoints.append(np.float32(kps).flatten())
+                images.append(fname + ".png")
+                targets.append(kps)
 
-    def __len__(self):
-        return len(self.images)
-
-    def __getitem__(self, key):
-        file_path = os.path.join(self.path, self.images[key])
-        keypoints = self.keypoints[key]
-
-        image = Image.open(file_path).convert('RGB')
-        image = np.float32(image) / 255.0
-
-        keypoints = np.float32(keypoints).reshape(68, 2)
-
-        out = dict(image=image, keypoints=keypoints)
-        if self.transform:
-            out = self.transform(out)
-        return out
+        super(IBug300WDataset, self).__init__(
+            images,
+            targets,
+            path,
+            transform)
