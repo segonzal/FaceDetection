@@ -1,7 +1,10 @@
 #!/usr/bin/env/python
 # -*- coding: utf-8 -*-
 
+import math
 import numpy as np
+
+import torch.utils.data as dd
 
 def custom_sampler(num_items, num_epochs, batch_size):
     r = batch_size - num_items % batch_size
@@ -30,27 +33,45 @@ class Trainer(object):
         sampler = custom_sampler(num_items, num_epochs, batch_size)
         sampler = sampler[step_start:]
 
-        train_dataloader = dd.DataLoader(
+        train_loader = dd.DataLoader(
                 self.train_dataset,
                 batch_sampler=sampler,
                 num_workers=self.num_workers)
 
         model = self.model.to(self.device)
+        model_name = model.__class__.__name__
 
-        # TODO: log num_epochs, batch_size, num_items
+        # TODO: log model_name, num_epochs, batch_size, num_items
 
         for step, train_batch_data in enumerate(train_loader, step_start):
             epoch = step // num_batches
             batch = step % num_batches
 
-            # TODO: move batch data to device
+            train_batch_data = {
+                k:v.to(self.device)
+                for k,v in train_batch_data.items()}
 
             # Train
             with torch.enable_grad():
                 model.train()
-                train_loss = self.train()
+                train_loss = self.train(model, train_batch_data)
 
             # TODO: log train loss vs step
+            print(step, train_loss)
 
-    def train(self):
+            # Only at the end of an epoch
+            if (step + 1) % num_batches == 0:
+                # Save
+                filename = self.filename(model_name, epoch)
+                if filename:
+                    torch.save(model.state_dict(), filename)
+
+        filename = self.filename(model_name)
+        torch.save(model.state_dict(), filename)
+
+    def filename(self, model_name, epoch=None):
+        """Returns the filename to save the model or None if model should not be saved."""
+        return None
+
+    def train(self, model, data):
         raise NotImplementedError

@@ -22,7 +22,11 @@ class WIDERDataset(BaseImageDataset):
                     images.append(line[2:-1])
                     targets.append([])
                 else:
-                    targets[-1].append(line[:-1].split())
+                    numbers = line[:-1].split()
+                    box = np.int32(list(map(int, numbers[:4])))
+                    kps = np.float32(list(map(float, numbers[4:-1]))).reshape(5, 3)
+                    kps = kps[:,:2].flatten()
+                    targets[-1].append((box, kps))
 
         super(WIDERDataset, self).__init__(
             images,
@@ -30,13 +34,9 @@ class WIDERDataset(BaseImageDataset):
             image_path,
             transform)
 
-    def preprocess_target(self, target):
-        bbox = [list(map(int, l[:4])) for l in target]
-        #xywh_to_xyxy
-        bbox = [[x,y,x+w,y+h] for x,y,w,h in bbox]
-
-        keypoints = [list(map(float, l[4:-1])) for l in target]
-        for l in keypoints:
-            del l[2::3]
-
-        return dict(bbox=bbox, keypoints=keypoints)
+    def get_target(self, key):
+        # The image with max faces contains 1968
+        box, kps = zip(*self.targets[key])
+        box = np.stack(box).reshape(-1,2,2)
+        kps = np.stack(kps).reshape(-1,5,2)
+        return dict(bbox=box,  keypoints=kps)

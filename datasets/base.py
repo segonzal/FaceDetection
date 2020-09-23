@@ -18,29 +18,20 @@ class BaseImageDataset(data.Dataset):
         return len(self.images)
 
     def __getitem__(self, key):
-        image  = self.get_image(key)
-        target = self.get_target(key)
+        item = dict()
+        item.update(self.get_image(key))
+        item.update(self.get_target(key))
 
         if self.transform:
-            return self.transform(image, target)
-        else:
-            return (image, target)
+            item = self.transform(item)
+
+        return item
 
     def get_image(self, key):
         image = os.path.join(self.image_path, self.images[key])
-        return self.preprocess_image(image)
-
-    def get_target(self, key):
-        target = self.targets[key]
-        return self.preprocess_target(target)
-
-    def preprocess_image(self, image):
         image = Image.open(image).convert('RGB')
         image = np.float32(image) / 255.0
-        return image
-
-    def preprocess_target(self, target):
-        return target
+        return dict(image=image)
 
     @property
     def color_mean(self):
@@ -61,5 +52,5 @@ class BaseImageDataset(data.Dataset):
             self.COLOR_MEAN = agg_avg
         return self.COLOR_MEAN
 
-    def load_dataset(self, *args, **kwargs):
-        raise NotImplementedError
+    def get_target(self, key):
+        return self.targets[key]

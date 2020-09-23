@@ -26,7 +26,7 @@ def focal_loss(input, target, weight, focus, reduction='mean', logits=False):
     elif reduction == 'sum':
         return torch.sum(F_loss)
 
-    elif reduction = 'none':
+    elif reduction == 'none':
         return F_loss
 
 def iou_loss(input, target):
@@ -58,3 +58,6 @@ class FocalLoss(nn.Module):
 
     def forward(self, input, target):
         return focal_loss(input, target, self.weight, self.focus, self.reduction, self.logits)
+
+class IOULoss(nn.Module):
+    pass
