@@ -4,7 +4,7 @@
 import os
 import numpy as np
 
-from base import BaseImageDataset
+from datasets.base import BaseImageDataset
 
 class IBug300WDataset(BaseImageDataset):
     def __init__(self, path, transform=None):

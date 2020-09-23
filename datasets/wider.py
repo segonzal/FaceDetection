@@ -4,7 +4,7 @@
 import os
 import numpy as np
 
-from base import BaseImageDataset
+from datasets.base import BaseImageDataset
 
 class WIDERDataset(BaseImageDataset):
     COLOR_MEAN = np.float32([0.47651113, 0.43808137, 0.41200404])
