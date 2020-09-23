@@ -4,9 +4,10 @@
 import math
 import numpy as np
 
+import torch
 import torch.utils.data as dd
 
-def custom_sampler(num_items, num_epochs, batch_size):
+def custom_sampler(num_items, num_epochs, batch_size, use_data_tail=False):
     r = batch_size - num_items % batch_size
     indices = np.vstack([
         np.hstack([
@@ -15,6 +16,8 @@ def custom_sampler(num_items, num_epochs, batch_size):
         ])
         for _ in range(num_epochs)
     ])
+    if not use_data_tail:
+        indices = indices[:,:-batch_size]
     return indices.reshape(-1, batch_size).astype(np.int32)
 
 class Trainer(object):
@@ -25,12 +28,15 @@ class Trainer(object):
         self.device = device
         self.epoch_start = 0
 
-    def __call__(self, num_epochs, batch_size):
+    def __call__(self, num_epochs, batch_size, use_data_tail=False):
         num_items   = len(self.train_dataset)
         num_batches = math.ceil(num_items / batch_size)
 
+        if not use_data_tail:
+            num_batches -= 1
+
         step_start = self.epoch_start * num_batches
-        sampler = custom_sampler(num_items, num_epochs, batch_size)
+        sampler = custom_sampler(num_items, num_epochs, batch_size, use_data_tail)
         sampler = sampler[step_start:]
 
         train_loader = dd.DataLoader(
@@ -42,6 +48,10 @@ class Trainer(object):
         model_name = model.__class__.__name__
 
         # TODO: log model_name, num_epochs, batch_size, num_items
+        print(f'Model name: {model_name}')
+        print(f'Epochs:     {num_epochs}')
+        print(f'Batch size: {batch_size}')
+        print(f'Items:      {num_items}')
 
         for step, train_batch_data in enumerate(train_loader, step_start):
             epoch = step // num_batches
@@ -57,7 +67,7 @@ class Trainer(object):
                 train_loss = self.train(model, train_batch_data)
 
             # TODO: log train loss vs step
-            print(step, train_loss)
+            print('train (step/loss):', step, train_loss)
 
             # Only at the end of an epoch
             if (step + 1) % num_batches == 0:
