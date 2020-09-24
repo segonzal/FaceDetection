@@ -37,6 +37,6 @@ class WIDERDataset(BaseImageDataset):
     def get_target(self, key):
         # The image with max faces contains 1968
         box, kps = zip(*self.targets[key])
-        box = np.stack(box).reshape(-1,2,2)
+        box = np.stack(box).reshape(-1,4)
         kps = np.stack(kps).reshape(-1,5,2)
         return dict(bbox=box,  keypoints=kps)

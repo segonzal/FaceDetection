@@ -51,6 +51,7 @@ class InterOcularNormalizedMSE(nn.Module):
 
 class FocalLoss(nn.Module):
     def __init__(self, weight, focus, reduction='mean', logits=False):
+        super(FocalLoss, self).__init__()
         self.weight    = weight
         self.focus     = focus
         self.reduction = reduction

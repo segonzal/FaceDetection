@@ -15,18 +15,24 @@ import torchvision.transforms.functional as T
 
 from models.fcos import fcos_resnet50
 from datasets.wider import WIDERDataset
-from losses import FocalLoss, IOULoss
+from losses import focal_loss, iou_loss
 from trainer import Trainer
 
 
 class FCOSLoss(nn.Module):
-    pass
+    def __init__(self):
+        super(FCOSLoss, self).__init__()
+
+    def forward(self, input, target):
+        #focal_loss(input, target, weight, focus, reduction='mean', logits=False)
+        #iou_loss(input, target)
+        return 0
 
 class TrainFCOSTransform(object):
     def __init__(self):
         self.seq = iaa.Sequential([
             iaa.PadToSquare(),
-            iaa.Resize({'width': 800, 'height': 800}),
+            iaa.Resize({'width': 128, 'height': 128}),
             #iaa.PadToFixedSize(width=800, height=800),
         ])
 
@@ -47,6 +53,43 @@ class TrainFCOSTransform(object):
 
         return image, bbox, keypoints
 
+    def bbox_list_to_matrix(self, class_list, bbox_list, image_shape, num_classes=1):
+        # order boxes by area
+        class_list, bbox_list = zip(
+            *sorted(zip(class_list, bbox_list),
+                    key=lambda p: (p[1][2]-p[1][0])*(p[1][1]-p[1][3])))
+
+        # clamp bbox to image
+        bbox_list = np.int32(bbox_list).reshape(-1,2,2)
+        bbox_list = np.clip(bbox_list, 0, image_shape).reshape(-1, 4)
+
+        # compute class and ltrb matrix
+        cls = np.zeros((*image_shape, num_classes))
+        box = np.zeros((*image_shape, 4))
+
+        for i, (x0,y0,x1,y1) in enumerate(bbox_list):
+            cls[y0:y1, x0:x1, class_list[i]-1] = 1
+
+            x, y = np.meshgrid(range(x0,x1), range(y0,y1))
+
+            box[y0:y1, x0:x1, 0] = x - x0 # l
+            box[y0:y1, x0:x1, 1] = y - y0 # t
+            box[y0:y1, x0:x1, 2] = x1 - x # r
+            box[y0:y1, x0:x1, 3] = y1 - y # b
+
+        # compute centerness
+        min_lr = np.min(np.stack([box[:,:,0], box[:,:,2]]), axis=0)
+        min_tb = np.min(np.stack([box[:,:,1], box[:,:,3]]), axis=0)
+        max_lr = np.max(np.stack([box[:,:,0], box[:,:,2]]), axis=0)
+        max_tb = np.max(np.stack([box[:,:,1], box[:,:,3]]), axis=0)
+
+        ctr = np.sqrt(
+            np.multiply(
+                np.divide(min_lr, max_lr, out=np.zeros_like(min_lr), where=max_lr!=0),
+                np.divide(min_tb, max_tb, out=np.zeros_like(min_tb), where=max_tb!=0)))
+
+        return cls, box, ctr)
+
     def __call__(self, data):
         img = data['image']
         box = data['bbox']
@@ -58,34 +101,13 @@ class TrainFCOSTransform(object):
         kps = kps.reshape(-1, 2)
 
         img, box_list, kps_list = self.imgaug_wrap(img, box, kps)
-        box_list = box_list.astype(np.int32)
 
-        # Compute centerness and ltrb
-        cls = np.zeros((*img.shape[:2], 1))
-        box = np.zeros((*img.shape[:2], 4))
+        bbox_list = np.int32().reshape(-1, 4).tolist()
+        class_list = np.ones(len(bbox_list), dtype=np.int32).tolist()
+        image_shape = img.shape[:2]
 
-        for x0,y0,x1,y1 in box_list:
-            x0 = max(x0, 0)
-            y0 = max(y0, 0)
-            x1 = min(x1, img.shape[1])
-            y1 = min(y1, img.shape[0])
-            cls[y0:y1, x0:x1, 0] = 1
-
-            x, y = np.meshgrid(range(x0,x1), range(y0,y1))
-
-            box[y0:y1, x0:x1, 0] = x - x0
-            box[y0:y1, x0:x1, 1] = y - y0
-            box[y0:y1, x0:x1, 2] = x1 - x
-            box[y0:y1, x0:x1, 3] = y1 - y
-
-        min_lr = np.min(np.stack([box[:,:,0], box[:,:,2]]), axis=0)
-        min_tb = np.min(np.stack([box[:,:,1], box[:,:,3]]), axis=0)
-        max_lr = np.max(np.stack([box[:,:,0], box[:,:,2]]), axis=0)
-        max_tb = np.max(np.stack([box[:,:,1], box[:,:,3]]), axis=0)
-        ctr = np.sqrt(
-            np.multiply(
-                np.divide(min_lr, max_lr, out=np.zeros_like(min_lr), where=max_lr!=0),
-                np.divide(min_tb, max_tb, out=np.zeros_like(min_tb), where=max_tb!=0)))
+        cls, box, ctr = self.bbox_list_to_matrix(
+                class_list, bbox_list, image_shape, num_classes=1)
 
         # TODO: Normalize image here
 
@@ -157,7 +179,7 @@ if __name__ == '__main__':
 
     num_epochs = 110
     milestones = [60000, 80000]
-    batch_size = 8
+    batch_size = 16
 
     # TODO: Log modifications to model
 
