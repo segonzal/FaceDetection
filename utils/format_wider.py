@@ -40,7 +40,7 @@ def intersection(abox, bbox):
     return intersection_area
 
 
-def split_image(image, boxes, x_splits, y_splits):
+def split_image(image, boxes, keypoints, x_splits, y_splits):
     width, height = image.size
     size_x = width // x_splits
     size_y = height // y_splits
@@ -49,18 +49,24 @@ def split_image(image, boxes, x_splits, y_splits):
             img_box = (i * size_x, j * size_y, (i + 1) * size_x, (j + 1) * size_y)
             new_image = image.crop(img_box)
             new_boxes = []
-            for box in boxes:
+            new_kps = []
+            for box, kps in zip(boxes, keypoints):
                 if intersection(box, img_box) > 0:
-                    new_boxes.append([
-                        box[0] - img_box[0],
-                        box[1] - img_box[1],
-                        box[2] - img_box[0],
-                        box[3] - img_box[1]])
+                    box = np.float32(box).reshape(-1, 2)
+                    box -= img_box[:2]
+                    new_boxes.append(box.flatten().tolist())
 
-            yield new_image, new_boxes
+                    if len(kps) > 0:
+                        kps = np.float32(kps).reshape(-1, 2)
+                        kps -= img_box[:2]
+                        new_kps.append(kps.flatten().tolist())
+                    else:
+                        kps.append(None)
+
+            yield new_image, new_boxes, new_kps
 
 
-def resize_image(image, boxes, new_size, enlarge=True):
+def resize_image(image, boxes, keypoints, new_size, enlarge=True):
     new_width, new_height = new_size
     old_width, old_height = image.size
 
@@ -74,11 +80,14 @@ def resize_image(image, boxes, new_size, enlarge=True):
     image = image.resize((new_width, new_height), Image.ANTIALIAS)
 
     boxes = (rnd * np.float32(boxes)).tolist()
+    keypoints = (rnd * np.float32(keypoints))
+    keypoints[keypoints < 0] = -1
+    keypoints = keypoints.tolist()
 
-    return image, boxes
+    return image, boxes, keypoints
 
 
-def prepare_dataset(path, out_path):
+def prepare_dataset(path, out_path, show_boxes=False):
     if not os.path.exists(out_path):
         os.mkdir(out_path)
     if not os.path.exists(os.path.join(out_path, 'images')):
@@ -89,8 +98,8 @@ def prepare_dataset(path, out_path):
     i = 1
     for subset in ['train', 'val']:
         data = read_labels(path, subset)
-        for image_path, box in zip(data['img'], data['box']):
-            # TODO: Keypoints for train subset
+        for image_path, box, kps in zip(data['img'], data['box'], data['kps']):
+
             with Image.open(os.path.join(path, subset, 'images', image_path)) as img:
                 width, height = img.size
                 x_splits = int((width / height) + 0.5)
@@ -99,21 +108,26 @@ def prepare_dataset(path, out_path):
                 x_splits = 1 if x_splits <= 2 else x_splits
                 y_splits = 1 if y_splits <= 2 else y_splits
 
-                for out_img, out_box in split_image(img, box, x_splits, y_splits):
+                for out_img, out_box, out_kps in split_image(img, box, kps, x_splits, y_splits):
                     # drop slices with no boxes
                     if len(out_box) == 0: continue
 
-                    out_img, out_box = resize_image(out_img, out_box, (640, 640))
+                    out_img, out_box, out_kps = resize_image(out_img, out_box, out_kps, (640, 640))
 
                     fname = f"{subset[0]}{i:06d}.jpg"
                     i += 1
                     width, height = out_img.size
                     out_file.write(f'{fname} {width} {height} {len(out_box)}\n')
 
-                    rect = ImageDraw.Draw(out_img)
-                    for b in out_box:
-                        out_file.write(f'{b[0]} {b[1]} {b[2]} {b[3]}\n')
-                        rect.rectangle(b)
+                    if show_boxes:
+                        rect = ImageDraw.Draw(out_img)
+                    for b, k in zip(out_box, out_kps):
+                        out_file.write(' '.join(map(str, b if None in k else b + k)) + '\n')
+                        if show_boxes:
+                            rect.rectangle(b)
+                            if None not in k:
+                                for p in range(5):
+                                    rect.text((k[2*p], k[2*p+1]), f'{p:d}')
                     out_img.save(os.path.join(out_path, 'images', fname))
 
 
@@ -121,10 +135,11 @@ def main():
     parser = argparse.ArgumentParser('Format WIDER')
     parser.add_argument('in_path', type=str, help='Path to were the train and val folders of WIDER is stored')
     parser.add_argument('out_path', type=str, help='Where to store the formated data')
+    parser.add_argument('--show-boxes', type=bool, default=False, help='Draw bounding boxes and keypoints')
 
     args = parser.parse_args()
 
-    prepare_dataset(args.in_path, args.out_path)
+    prepare_dataset(args.in_path, args.out_path, show_boxes=args.show_boxes)
 
 
 if __name__ == '__main__':
