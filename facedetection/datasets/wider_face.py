@@ -41,4 +41,4 @@ class WiderFace(data.Dataset):
 
         cls = np.ones((kps.shape[0], 1))
 
-        return img, dict(box=box, kps=kps, cls=cls)
+        return dict(img=img, box=box, kps=kps, cls=cls)

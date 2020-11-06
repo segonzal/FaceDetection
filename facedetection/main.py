@@ -16,6 +16,10 @@ def dir_path(arg):
     raise NotADirectoryError(arg)
 
 
+def fcos_loss(output, target):
+    pass
+
+
 def train(args, model, criterion, device, train_loader, optimizer, epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
@@ -80,7 +84,7 @@ def main(use_wandb=False):
         WiderFace(args.path, 'train', transform=None),
         batch_size=args.batch_size, shuffle=True, **kwargs)
     test_loader = torch.utils.data.DataLoader(
-        WiderFace(args.path, 'test', transform=None),
+        WiderFace(args.path, 'val', transform=None),
         batch_size=args.test_batch_size, shuffle=True, **kwargs)
 
     model = fcos_resnet50(1).to(device)
@@ -90,7 +94,7 @@ def main(use_wandb=False):
         wandb.watch(model)
 
     for epoch in range(1, args.epochs + 1):
-        train(args, model, device, train_loader, optimizer, epoch)
+        train(args, model, fcos_loss, device, train_loader, optimizer, epoch)
         # TODO: test every X epochs
         test(args, model, device, test_loader)
 
