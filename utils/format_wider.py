@@ -17,9 +17,8 @@ def read_labels(path, subset):
                 numbers = line[:-1].split()
                 if len(numbers) > 0:
                     box = np.int32(list(map(int, numbers[:4])))
-                    if subset == 'train':
-                        box[2] += box[0]
-                        box[3] += box[1]
+                    box[2] += box[0]
+                    box[3] += box[1]
                     outputs['box'][-1].append(box)
                 if len(numbers) > 4:
                     kps = np.float32(list(map(float, numbers[4:-1]))).reshape(5, 3)
@@ -34,8 +33,8 @@ def intersection(abox, bbox):
     x_right  = min(abox[2], bbox[2])
     y_bottom = min(abox[3], bbox[3])
 
-    if x_right < x_left or y_bottom < y_top:
-        return 0.0
+    #if x_right < x_left or y_bottom < y_top:
+    #    return 0.0
 
     intersection_area = (x_right - x_left) * (y_bottom - y_top)
 
@@ -95,14 +94,13 @@ def prepare_dataset(path, out_path, out_size, show_boxes=False):
     if not os.path.exists(out_path):
         os.mkdir(out_path)
 
+    i = 1
     for subset in ['val', 'train']:
         os.makedirs(os.path.join(out_path, subset, 'images'), exist_ok=True)
         out_file = open(os.path.join(out_path, subset, 'labels.txt'), 'w')
-        i = 1
 
         data = read_labels(path, subset)
         for image_path, box, kps in zip(data['img'], data['box'], data['kps']):
-
             with Image.open(os.path.join(path, subset, 'images', image_path)) as img:
                 width, height = img.size
                 x_splits = int((width / height) + 0.5)
@@ -114,13 +112,14 @@ def prepare_dataset(path, out_path, out_size, show_boxes=False):
                 for out_img, out_box, out_kps in split_image(img, box, kps, x_splits, y_splits):
                     # drop slices with no boxes
                     if len(out_box) == 0:
+                        #print(subset, image_path, i, box)
                         continue
 
                     out_img, out_box, out_kps = resize_image(out_img, out_box, out_kps, (out_size, out_size))
 
-                    fname = f"{i:06d}.jpg"
+                    fname = f"{i:06d}.jpg"#{image_path[image_path.find('/')+1:]}-
                     i += 1
-                    print(subset, fname)
+                    #print(subset, fname)
                     width, height = out_img.size
                     out_file.write(f'# {fname} {width} {height} {len(out_box)} {subset}\n')
 
@@ -143,7 +142,7 @@ def main():
     parser = argparse.ArgumentParser('Format WIDER')
     parser.add_argument('in_path', type=str, help='Path to were the train and val folders of WIDER is stored')
     parser.add_argument('out_path', type=str, help='Where to store the formated data')
-    parser.add_argument('--show-boxes', type=bool, default=False, help='Draw bounding boxes and keypoints')
+    parser.add_argument('--show-boxes', action='store_true', default=False, help='Draw bounding boxes and keypoints')
     parser.add_argument('--out-size', type=int, default=1024, help='Size of the big side of the image (default 1024)')
 
     args = parser.parse_args()
