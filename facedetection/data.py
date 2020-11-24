@@ -131,35 +131,38 @@ def get_aspect_ratios(images):
     return aspect_ratios
 
 
-def resize(image, target, width, height):
-    image = image.resize((width, height), Image.ANTIALIAS)
+def resize(image, target, new_size):
+    new_width, new_height = new_size
+    old_width, old_height = image.size
+
+    image = image.resize((new_width, new_height), Image.ANTIALIAS)
+
+    target[:, 0::2] = target[:, 0::2] * (new_width / old_width)
+    target[:, 1::2] = target[:, 1::2] * (new_height / old_height)
 
     return image, target
 
 
-def collate_fn(batch):
-    image, target = tuple(zip(*batch))
+def list_of_tuples_to_tuple_of_lists(batch):
+    return tuple(zip(*batch))
 
-    # TODO: add image_size parameter elsewhere
-    image_size = 640
-    aspect_ratio = np.median(get_aspect_ratios(image))
 
-    if aspect_ratio < 1:
-        width, height = int(image_size * aspect_ratio), image_size
-    else:
-        width, height = image_size, int(image_size / aspect_ratio)
+class CollateFn(object):
+    def __init__(self, image_size):
+        self.image_size = image_size
 
-    out_image, out_target = [], []
-    for img, tgt in zip(image, target):
-        img, tgt = resize(img, tgt, width, height)
-        img = np.float32(img)
+    def compute_median_aspect_ratio(self, images):
+        aspect_ratio = np.median(get_aspect_ratios(images))
 
-        # TODO: Resize target accordingly
+        if aspect_ratio < 1:
+            width, height = int(self.image_size * aspect_ratio), self.image_size
+        else:
+            width, height = self.image_size, int(self.image_size / aspect_ratio)
 
-        out_image.append(img)
-        out_target.append(tgt)
+        return width, height
 
-    # TODO: transform target as FCOS expects it
-
-    out_image = np.float32(out_image)
-    return out_image, out_target
+    def __call__(self, batch):
+        new_size = self.compute_median_aspect_ratio([i for i, t in batch])
+        batch = [resize(image, target, new_size) for image, target in batch]
+        # TODO: transform target as FCOS expects it
+        return list_of_tuples_to_tuple_of_lists(batch)
