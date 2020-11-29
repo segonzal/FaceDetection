@@ -3,6 +3,7 @@ import numpy as np
 import facedetection.data as data
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+from PIL import Image
 
 
 def draw_images(batch, n=1):
@@ -30,7 +31,7 @@ def train(args):
 
     device = torch.device('cuda:0' if use_cuda else 'cpu')
 
-    collate_fn = data.CollateFn(640)
+    collate_fn = data.CollateFn(640, [8, 16, 32, 64, 128], [32, 64, 128, 256, 512])
 
     train_dataset = data.WIDERFace(args.path, subset='train', transforms=None)
     group_ids = data.group_aspect_ratio(train_dataset, k=5)
@@ -41,8 +42,11 @@ def train(args):
         num_workers=args.num_workers,
         collate_fn=collate_fn)
 
-    for batch in train_loader:
-        draw_images(batch, 16)
-        plt.savefig("test.png", dpi=150)
-        # plt.show()
+    print('test')
+    for image, target in train_loader:
+        for tt in target:
+            for i, t in enumerate(tt):
+                for j in range(6):
+                    im = Image.fromarray(np.uint8(t[:, :, j] * 255) , 'L')
+                    im.save(f"target_lvl-{i}_ch-{j}.jpeg")
         break
