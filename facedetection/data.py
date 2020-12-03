@@ -28,6 +28,7 @@ class WIDERFace(data.Dataset):
 
     def __getitem__(self, idx):
         image = Image.open(self.get_image_path(idx)).convert('RGB')
+        image = np.float32(image) / 255.0
 
         target = np.float32(self.boxes[idx]).reshape(-1, 4)
         target[:, 2:] = target[:, 2:] + target[:, :2]
