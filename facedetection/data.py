@@ -21,7 +21,13 @@ class WIDERFace(data.Dataset):
                     self.images.append(line[1])
                     self.boxes.append([])
                 else:
-                    self.boxes[-1].extend(line[:4])
+                    self.boxes[-1].append(line[:4])
+
+        def sort_key(x):
+            return int(x[2]) * int(x[3])
+
+        for box in self.boxes:
+            box.sort(key=sort_key, reverse=True)
 
     def __len__(self):
         return len(self.images)
@@ -30,8 +36,8 @@ class WIDERFace(data.Dataset):
         image = Image.open(self.get_image_path(idx)).convert('RGB')
         image = np.float32(image) / 255.0
 
-        target = np.float32(self.boxes[idx]).reshape(-1, 4)
-        target[:, 2:] = target[:, 2:] + target[:, :2]
+        target = np.float32(self.boxes[idx]).reshape(-1, 2, 2)
+        target[:, 1, :] = target[:, 0, :] + target[:, 1, :]
 
         if self.transforms:
             image, target = self.transforms(image, target)
