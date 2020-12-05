@@ -39,10 +39,12 @@ class WIDERFace(data.Dataset):
         target = np.float32(self.boxes[idx]).reshape(-1, 2, 2)
         target[:, 1, :] = target[:, 0, :] + target[:, 1, :]
 
-        if self.transforms:
-            image, target = self.transforms(image, target)
+        item = dict(image=image, target=target)
 
-        return image, target
+        if self.transforms:
+            item = self.transforms(item)
+
+        return item
 
     def get_image_path(self, idx):
         image_path = os.path.join(self.path, self.subset, 'images', self.images[idx])
