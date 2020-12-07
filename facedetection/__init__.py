@@ -6,14 +6,14 @@ from facedetection import data, sampler, transforms, collate_functions, fcos
 
 
 def train_one_epoch(model, data_loader, optimizer, epoch, device):
-    loss_fn = fcos.fcos_loss
+    # loss_fn = fcos.fcos_loss
 
-    model.train()
-    for item in data_loader:
-        image = item['image'].to(device)
-        target = item['target'].to(device)
-        image_shape = item['image_shape']
-        target_shape = item['target_shape']
+    # model.train()
+    for batch in data_loader:
+        batch = {k: v.to(device) if not k.startswith('_') else v for k, v in batch.items()}
+
+        for k, v in batch.items():
+            print(k, v.shape)
 
         # prediction = model(image, image_shape, target, target_shape)
         #
@@ -38,8 +38,7 @@ def train(args):
 
     device = torch.device('cuda:0' if use_cuda else 'cpu')
 
-    train_transform = None
-    # transforms.EncodeTarget([8, 16, 32, 64, 128], [32, 64, 128, 256, 512])
+    train_transform = transforms.EncodeTarget([8, 16, 32, 64, 128], [32, 64, 128, 256, 512])
     train_dataset = data.WIDERFace(args.path, subset='train', transforms=train_transform)
     train_sampler = sampler.get_sampler(train_dataset, args.batch_size, k=5)
     train_loader = torch.utils.data.DataLoader(
@@ -53,6 +52,6 @@ def train(args):
     # lr weight_decay momentum
     # log_frequency
 
-    model = model.to(device)
+    # model = model.to(device)
     for epoch in range(args.epochs):
         train_one_epoch(model, train_loader, optimizer, epoch, device)

@@ -28,5 +28,5 @@ def padded_dict_collate_fn(batch):
     for key in list(batch.keys()):
         array, shapes = pad_array(batch[key])
         batch[key] = torch.tensor(array)
-        batch[key + '_shape'] = shapes
+        batch['_shape_' + key] = shapes
     return batch
