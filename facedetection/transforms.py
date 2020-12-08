@@ -61,6 +61,11 @@ class EncodeTarget(object):
         out = dict(image=image)
         for i, (stride, min_size, max_size) in enumerate(zip(self.strides, [0, *self.sizes], [*self.sizes, np.inf])):
             map_height, map_width = img_height // stride, img_width // stride
+
+            # No clue why it needs these subtractions to match predicted shape
+            map_height -= 1
+            map_width -= 2
+
             cls = np.zeros((map_height, map_width, 1), dtype=np.float32)
             ctr = np.zeros((map_height, map_width, 1), dtype=np.float32)
             box = np.zeros((map_height, map_width, 4), dtype=np.float32)

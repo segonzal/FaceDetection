@@ -8,21 +8,23 @@ from facedetection import data, sampler, transforms, collate_functions, fcos
 def train_one_epoch(model, data_loader, optimizer, epoch, device):
     # loss_fn = fcos.fcos_loss
 
-    # model.train()
+    model.train()
     for batch in data_loader:
         batch = {k: v.to(device) if not k.startswith('_') else v for k, v in batch.items()}
 
-        for k, v in batch.items():
-            print(k, v.shape)
+        prediction = model(batch['image'])
 
-        # prediction = model(image, image_shape, target, target_shape)
-        #
+        print('target', 'prediction')
+        for k in prediction:
+            print(k, batch[k].shape, prediction[k].shape)
+
         # optimizer.zero_grad()
         # loss = loss_fn(prediction, target)
         # loss.backward()
         # optimizer.step()
         #
         # print(epoch, loss.item())
+        return
 
 
 def train(args):
@@ -38,7 +40,10 @@ def train(args):
 
     device = torch.device('cuda:0' if use_cuda else 'cpu')
 
-    train_transform = transforms.EncodeTarget([8, 16, 32, 64, 128], [32, 64, 128, 256, 512])
+    network_strides = [8, 16, 32, 64, 128]
+    network_sizes = [32, 64, 128, 256, 512]
+
+    train_transform = transforms.EncodeTarget(network_strides, network_sizes)
     train_dataset = data.WIDERFace(args.path, subset='train', transforms=train_transform)
     train_sampler = sampler.get_sampler(train_dataset, args.batch_size, k=5)
     train_loader = torch.utils.data.DataLoader(
@@ -47,11 +52,11 @@ def train(args):
         num_workers=args.num_workers,
         collate_fn=collate_functions.padded_dict_collate_fn)
 
-    model = None
-    optimizer = None
-    # lr weight_decay momentum
+    model = fcos.fcos_resnet50()
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     # log_frequency
 
-    # model = model.to(device)
+    model = model.to(device)
     for epoch in range(args.epochs):
         train_one_epoch(model, train_loader, optimizer, epoch, device)
+        return

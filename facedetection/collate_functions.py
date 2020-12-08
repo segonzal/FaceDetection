@@ -27,6 +27,6 @@ def padded_dict_collate_fn(batch):
     # Wrap dict_keys with a list so we do not have troubles updating the dict
     for key in list(batch.keys()):
         array, shapes = pad_array(batch[key])
-        batch[key] = torch.tensor(array)
+        batch[key] = torch.tensor(array).permute(0, 3, 1, 2)
         batch['_shape_' + key] = shapes
     return batch
