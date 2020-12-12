@@ -36,10 +36,10 @@ class WIDERFace(data.Dataset):
         image = Image.open(self.get_image_path(idx)).convert('RGB')
         image = np.float32(image) / 255.0
 
-        target = np.float32(self.boxes[idx]).reshape(-1, 2, 2)
-        target[:, 1, :] = target[:, 0, :] + target[:, 1, :]
+        box = np.float32(self.boxes[idx]).reshape(-1, 2, 2)
+        box[:, 1, :] = box[:, 0, :] + box[:, 1, :]
 
-        item = dict(image=image, target=target)
+        item = (image, box)
 
         if self.transforms:
             item = self.transforms(item)
