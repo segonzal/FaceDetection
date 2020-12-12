@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import math
 from imgaug.augmentables.bbs import BoundingBoxesOnImage
 
 
@@ -29,11 +30,8 @@ class EncodeTarget(object):
 
         target_cls, target_ctr, target_box, target_mask = [], [], [], []
         for i, (stride, min_size, max_size) in enumerate(zip(self.strides, [0, *self.sizes], [*self.sizes, np.inf])):
-            map_height, map_width = img_height // stride, img_width // stride
-
-            # No clue why it needs these subtractions to match predicted shape
-            map_height -= 1
-            map_width -= 2
+            map_height = math.ceil(img_height / stride) - 2
+            map_width = math.ceil(img_width / stride) - 2
 
             cls = np.zeros((map_height, map_width, 1), dtype=np.float32)
             ctr = np.zeros((map_height, map_width, 1), dtype=np.float32)
