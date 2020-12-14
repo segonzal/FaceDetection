@@ -42,7 +42,7 @@ class FCOS(nn.Module):
             tower.extend([
                 nn.Conv2d(channels, channels, 3, padding=1),
                 nn.GroupNorm(32, channels),
-                nn.ReLU()])
+                nn.ReLU(inplace=True)])
         return nn.Sequential(*tower)
 
     @staticmethod
@@ -86,6 +86,7 @@ class FCOS(nn.Module):
 
             if not self.training:
                 box_prediction = box_prediction * self.strides[i]
+                # TODO: Check if needs to add locations
 
             cls_prediction = cls_prediction.reshape(batch_size, -1, 1)
             ctr_prediction = ctr_prediction.reshape(batch_size, -1, 1)
@@ -99,7 +100,10 @@ class FCOS(nn.Module):
         predicted_ctr = torch.cat(predicted_ctr, 1)
         predicted_box = torch.cat(predicted_box, 1)
 
-        return predicted_cls, predicted_ctr, predicted_box
+        if self.training:
+            return predicted_cls, predicted_ctr, predicted_box
+        else:
+            return ops.nms(predicted_box, predicted_cls, 0.05)
 
 
 def fcos_resnet50():

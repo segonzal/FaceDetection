@@ -1,19 +1,22 @@
 import torch
 import numpy as np
 import math
-from imgaug.augmentables.bbs import BoundingBoxesOnImage
+import imgaug as ia
+import imgaug.augmenters as iaa
 
 
 class ImgaugWrapper(object):
     def __init__(self, seq):
-        self.seq = seq
+        self.seq = iaa.Sequential(seq)
 
-    def __call__(self, image, target):
-        image = np.float32(image)
-        bbs = BoundingBoxesOnImage.fill_from_xyxy_array_(target)
-        image, bbs = self.seq(image=image, bounding_boxes=bbs)
-        target = bbs.to_xyxy_array()
-        return image, target
+    def __call__(self, batch):
+        img, box = batch
+
+        bbs = ia.BoundingBoxesOnImage.from_xyxy_array(box.reshape(-1, 4), shape=img.shape)
+        img, bbs = self.seq(image=img, bounding_boxes=bbs)
+        box = bbs.to_xyxy_array().reshape(-1, 2, 2)
+
+        return img, box
 
 
 class EncodeTarget(object):
@@ -22,8 +25,6 @@ class EncodeTarget(object):
         self.sizes = sizes
 
     def encode_boxes(self, boxes, img_width, img_height):
-        # TODO: Check encode target for index 8 with default seeds,
-        #  there is a size mismatch between target and predicted outputs.
         # Order targets by area (bigger first)
         boxes = boxes.tolist()
         boxes.sort(key=lambda t: (t[1][0] - t[0][0]) * (t[1][1] - t[0][1]), reverse=True)
@@ -32,6 +33,9 @@ class EncodeTarget(object):
         for i, (stride, min_size, max_size) in enumerate(zip(self.strides, [0, *self.sizes], [*self.sizes, np.inf])):
             map_height = math.ceil(img_height / stride) - 2
             map_width = math.ceil(img_width / stride) - 2
+
+            assert map_height > 0 and map_width > 0, f"The input image (W:{img_width}, H:{img_height}) is too small " \
+                                                     f"to reach level {i}:{stride}."
 
             cls = np.zeros((map_height, map_width, 1), dtype=np.float32)
             ctr = np.zeros((map_height, map_width, 1), dtype=np.float32)
@@ -86,8 +90,11 @@ class EncodeTarget(object):
         return img, cls, ctr, box, mask
 
 
-class ToTorch(object):
-    def __call__(self, image, target):
-        image = torch.from_numpy(np.rollaxis(image, 2, 0))
-        target = list(map(torch.from_numpy, target))
-        return image, target
+class Compose(object):
+    def __init__(self, callables=[]):
+        self.callables = callables
+
+    def __call__(self, batch):
+        for fn in self.callables:
+            batch = fn(batch)
+        return batch
