@@ -38,7 +38,7 @@ def get_args():
 
 def main():
     args = get_args()
-    facedetection.train(args)
+    facedetection.eval(args)
 
 
 if __name__ == '__main__':

@@ -10,5 +10,5 @@ dependencies:
   - py-opencv=4.4
   - python=3.6
   - pytorch=1.5
-  - torchvision=0.6
+  - torchvision=0.8
   - wandb=0.10

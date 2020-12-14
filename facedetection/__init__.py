@@ -63,3 +63,58 @@ def train(args):
     for epoch in range(args.epochs):
         train_one_epoch(model, train_loader, optimizer, epoch, device)
     torch.save(model.state_dict(), 'fcos.pth')
+
+
+def to_tensor(batch):
+    img, box = batch
+    img = [np.rollaxis(img, 2, 0)]
+    return img, box
+
+
+def eval(args):
+    use_cuda = not args.no_cuda and torch.cuda.is_available()
+    device = torch.device('cuda:0' if use_cuda else 'cpu')
+
+    model = fcos.fcos_resnet50()
+    model.load_state_dict(torch.load('fcos.pth'))
+
+    eval_transform = transforms.Compose([
+        transforms.ImgaugWrapper([
+            iaa.Resize({"shorter-side": 320, "longer-side": "keep-aspect-ratio"}),
+        ]),
+        to_tensor])
+    eval_dataset = data.WIDERFace(args.path, subset='val', transforms=eval_transform)
+    eval_sampler = sampler.get_sampler(eval_dataset, args.batch_size, k=5)
+    eval_loader = torch.utils.data.DataLoader(
+        eval_dataset,
+        batch_sampler=eval_sampler,
+        num_workers=args.num_workers,
+        collate_fn=collate_functions.fcos_collate_fn)
+
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as patches
+
+    model = model.to(device)
+    model.eval()
+    for batch in eval_loader:
+        images, t_box = (t.to(device) for t in batch)
+
+        p_box = model(images)
+
+        fig, ax = plt.subplots(len(p_box))
+        images = np.rollaxis(images.cpu().numpy(), 1, 4)
+        t_box = t_box.cpu().numpy().reshape(args.batch_size, -1, 4)
+
+        for i, (pboxes, tboxes) in enumerate(zip(p_box, t_box)):
+            img = images[i, :, :, :]
+            ax[i].imshow(img)
+            for x0, y0, x1, y1 in pboxes:
+                rect = patches.Rectangle((x0, y0), x1 - x0, y1 - y0, linewidth=1, edgecolor='r', facecolor='none')
+                ax[i].add_patch(rect)
+            for x0, y0, x1, y1 in tboxes:
+                rect = patches.Rectangle((x0, y0), x1 - x0, y1 - y0, linewidth=1, edgecolor='b', facecolor='none')
+                ax[i].add_patch(rect)
+
+        plt.savefig('test_image.png')
+        # plt.show()
+        return

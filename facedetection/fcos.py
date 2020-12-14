@@ -10,6 +10,7 @@ from torchvision.models._utils import IntermediateLayerGetter
 
 class FCOS(nn.Module):
     prior_prob = 0.01
+    confidence_threshold = 0.5
 
     def __init__(self, backbone, intermediate_layers, strides, fpn_out_channels=128):
         super(FCOS, self).__init__()
@@ -103,7 +104,15 @@ class FCOS(nn.Module):
         if self.training:
             return predicted_cls, predicted_ctr, predicted_box
         else:
-            return ops.nms(predicted_box, predicted_cls, 0.05)
+            predicted_cls = predicted_cls.cpu().detach()
+            predicted_box = predicted_box.cpu().detach()
+            out = []
+            for b in range(batch_size):
+                boxes = predicted_box[i, :, :]
+                scores = predicted_cls[i, :, :]
+                ki = ops.nms(boxes, scores, 0.05)
+                out.append(boxes[ki].numpy())
+            return out
 
 
 def fcos_resnet50():
